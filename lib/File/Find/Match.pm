@@ -52,9 +52,10 @@ use strict;
 use warnings;
 use base 'Exporter';
 use File::Basename ();
+use Carp;
 
 use constant {
-	RULE_COND   => 0,
+	RULE_PREDICATE   => 0,
 	RULE_ACTION => 1,
 	
 	IGNORE => \19,
@@ -62,11 +63,11 @@ use constant {
 };
 
 
-our $Id         = '$Id: Match.pm 297 2004-11-13 07:01:09Z dylan $';
-our $VERSION    = 0.06;
+our $Id         = '$Id: Match.pm 303 2004-11-25 07:37:05Z dylan $';
+our $VERSION    = 0.07;
 our @EXPORT     = qw( IGNORE MATCH );
 our @EXPORT_OK  = @EXPORT;
-our %EXPORT_TAG = (
+our %EXPORT_TAGS = (
 	constants => [ @EXPORT ],
 	all       => [ @EXPORT ],
 );
@@ -87,15 +88,9 @@ sub new {
 	my ($this) = shift;
 	my $me = bless {}, $this;
 	
-	$me->initialize(@_);
-
-	return $me;
-}
-
-sub initialize {
-	my ($me) = @_;
-
 	$me->{rules} = [];
+	
+	return $me;
 }
 
 
@@ -112,8 +107,8 @@ sub rules {
 	
 	while (@_) {
 		my ($predicate, $action) = (shift, shift);
-		my $pred = $me->predicate($predicate);
-		my $act  = $me->action($action);
+		my $pred = $me->_predicate($predicate);
+		my $act  = $me->_action($action);
 		push @{ $me->{rules} }, [ $pred, $act];
 	}
 }
@@ -137,7 +132,7 @@ The return value of this function is unimportant.
 
 sub find {
 	my ($me, @files) = @_;
-	my $matcher = $me->matcher();
+	my $matcher = $me->_matcher();
 	
 	unless (@files) {
 		@files = ('.');
@@ -163,24 +158,47 @@ sub find {
 	}
 }
 
-sub matcher {
-	my $me = shift;
-	my @rules = @{ $me->{rules} };
-	
-	sub {
-		foreach my $rule (@rules) {
-			if ($rule->[RULE_COND]->()) {
-				my $v = $rule->[RULE_ACTION]->();
-				
-				return 0 if $v == IGNORE;
-				return 1 if $v == MATCH;
-			}
-		}
-	};
-}
+=head1 EXPORTS
+
+Two constants are exported: C<IGNORE> and C<MATCH>.
+
+See L</Actions> for usage.
+
+=head1 RULES
+
+A rule is a predicate => action pair.
+
+A predicate is the code (or regexp, see below) used to determine if
+we want to process a file.
+
+An action is the code we use to process the file.
+By process, I mean anything from sending it through a templating engine to printing
+its name to C<STDOUT>.
 
 
-sub predicate {
+
+
+=head2 Predicates
+
+A predicate is one of: a Regexp reference from C<qr//>,
+a subroutine reference, or a string.
+An action is a subroutine reference that is called on
+a filename when a predicate matches it.
+
+Naturally for regexp predicates, matching occures when the pattern matches
+the filename.
+
+For coderef predicates, $_ is set to the filename and the subroutine is called.
+If it returns a true value, the predicate is true. Else the predicate is false.
+
+When the predicate is a string, it must match the basename of $_ (e.g. filename sans path) exactly.
+For example, "foo" will match "bar/foo", "bar/baz/foo", and "bar/baz/quux/foo".
+
+
+=cut
+
+# Take a predicate and return a coderef.
+sub _predicate {
 	my ($me, $pred) = @_;
 	my $ref =  ref($pred) || '';
 	
@@ -205,11 +223,21 @@ sub predicate {
 	}
 }
 
-sub action {
+
+=head2 Actions
+
+An action is just a subroutine reference that is called when its associated
+predicate matches a file. When an action is called, $_ will be set to the filename.
+
+=cut
+
+
+
+sub _action {
 	my ($me, $act) = @_;
 	my $ref = ref($act) || '';
 
-	die "Undefined action!" unless defined $act;
+	confess "Undefined action!" unless defined $act;
 
 	if ($ref eq 'CODE') {
 		return $act;
@@ -218,50 +246,31 @@ sub action {
 	}
 }
 
-=head1 EXPORTS
-
-Two constants are exported: C<IGNORE> and C<MATCH>.
-
-See L</Actions> for usage.
-
-=head1 RULES
-
-A rule is a predicate => action pair.
-
-A predicate is the code (or regexp, see below) used to determine if
-we want to process a file.
-
-An action is the code we use to process the file.
-By process, I mean anything from sending it through a templating engine to printing
-its name to C<STDOUT>.
-
-
-=head2 Predicates
-
-A predicate is one of: a Regexp reference from C<qr//>,
-a subroutine reference, or a string.
-An action is a subroutine reference that is called on
-a filename when a predicate matches it.
-
-Naturally for regexp predicates, matching occures when the pattern matches
-the filename.
-
-For coderef predicates, $_ is set to the filename and the subroutine is called.
-If it returns a true value, the predicate is true. Else the predicate is false.
-
-When the predicate is a string, it must match the basename of $_ (e.g. filename sans path) exactly.
-For example, "foo" will match "bar/foo", "bar/baz/foo", and "bar/baz/quux/foo".
-
-=head2 Actions
-
-An action is just a subroutine reference that is called when its associated
-predicate matches a file. When an action is called, $_ will be set to the filename.
+=pod
 
 If an action returns C<IGNORE> or C<MATCH>, all following rules will not be tried.
 You should return C<IGNORE> when you do not want to recurse into a directory, and C<MATCH>
 otherwise. On non-directories, currently there is no difference between the two.
 
 If an action returns niether C<IGNORE> nor C<MATCH>, the next rule will be tried.
+
+=cut
+
+sub _matcher {
+	my $me = shift;
+	my @rules = @{ $me->{rules} };
+	
+	sub {
+		foreach my $rule (@rules) {
+			if ( $rule->[RULE_PREDICATE]->() ) {
+				my $v = $rule->[RULE_ACTION]->();
+				
+				return 0 if $v == IGNORE;
+				return 1 if $v == MATCH;
+			}
+		}
+	};
+}
 
 =head1 AUTHOR
 

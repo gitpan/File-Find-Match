@@ -6,9 +6,11 @@ my $build = Module::Build->new(
 	dist_author        => 'Dylan William Hardison <dhardison@cpan.org>',
 	license            => 'perl',
 	requires           => {
-		'perl'            => '5.8.0',
-		'Test::More'      => 0,
+		'perl' => '5.8.0',
 	},
+	build_requires     => {
+		'Test::More' => 0,
+	},	
 	create_makefile_pl => 'passthrough',
 );
 

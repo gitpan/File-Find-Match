@@ -2,7 +2,7 @@ Build.PL
 ChangeLog
 examples/filer.pl
 lib/File/Find/Match.pm
-Makefile.PL
+lib/File/Find/Match/Sugar.pm
 MANIFEST			This list of files
 MANIFEST.SKIP
 META.yml
