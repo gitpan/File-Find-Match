@@ -1,4 +1,4 @@
-File::Find::Match version 0.02
+File::Find::Match version 0.06
 ===================
 
 This module provides a replacement for File::Find,
@@ -21,7 +21,8 @@ to install it, or grab it from CPAN.
 DEPENDENCIES
 
 This module does not require any other modules at runtime,
-but requires Module::Build for installation.
+but requires Module::Build for installation and Test::More
+to run the test suite.
 
 COPYRIGHT AND LICENCE
 

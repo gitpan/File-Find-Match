@@ -2,7 +2,8 @@
 
 use strict;
 use warnings;
-use File::Find::Match qw( :constants :functions );
+use File::Find::Match;
+use File::Find::Match::Sugar;
 use lib 'blib';
 
 my $finder = new File::Find::Match;

@@ -1,3 +1,12 @@
+2004-11-13  Dylan Hardison <dhardison@cpan.org>
+
+	* lib/File/Find/Match.pm: Fixed up documentation, changed the meaning of
+	string predicates. Removed PASS constant and made it the default behavior.
+	Released version to CPAN. Decided to remove syntax-sugar functions and put
+	them in File::Find::Match::Sugar.
+	* lib/File/Find/Match/Sugar.pm: Created this file to hold file(), dir(),
+	and default(), plus associated documentation.
+
 2004-11-01  Dylan Hardison <dhardison@cpan.org>
 
 	* lib/File/Find/Match.pm: Added documentation, made object-oriented,

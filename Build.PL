@@ -7,6 +7,7 @@ my $build = Module::Build->new(
 	license            => 'perl',
 	requires           => {
 		'perl'            => '5.8.0',
+		'Test::More'      => 0,
 	},
 	create_makefile_pl => 'passthrough',
 );
