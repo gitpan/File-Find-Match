@@ -1,0 +1,8 @@
+Build.PL
+Changes
+examples/filer.pl
+lib/File/Find/Match.pm
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml
+README

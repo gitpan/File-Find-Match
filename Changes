@@ -1,0 +1,4 @@
+Revision history for Perl extension File::Find::Match
+
+0.01  Mon Oct  4 22:31:15 2004
+	- first release; name changed to File::Find::Match as per suggestion from Andy Wardley.

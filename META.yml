@@ -1,0 +1,13 @@
+--- #YAML:1.0
+name: File-Find-Match
+version: 0.01
+author: Dylan William Hardison <dhardison@cpan.org>
+abstract: Perform actions on files matching a regexp.
+license: perl
+requires:
+  perl: 5.8.0
+provides:
+  File::Find::Match:
+    file: lib/File/Find/Match.pm
+    version: 0.01
+generated_by: Module::Build version 0.25
