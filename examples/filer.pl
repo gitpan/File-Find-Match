@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use File::Find::Match qw( :constants );
+use File::Find::Match qw( :constants :functions );
 use lib 'blib';
 
 my $finder = new File::Find::Match;
@@ -16,13 +16,15 @@ $finder->rules(
 	},
 	qr/\.pl$/ => sub {
 		print "This is a perl script: $_\n";
-		return PASS; # let the following rules have a crack at it.
+	},
+	"filer.pl" => sub {
+		print "this is filer.pl: $_\n";
 	},
 	qr/filer\.pl$/ => sub {
-		print "myself!!! $_\n";
+		print "this is also filer.pl! $_\n";
 		return MATCH;
 	},
-	dir => sub {
+	dir {
 		print "Directory: $_\n";
 		MATCH;
 	},

@@ -3,7 +3,7 @@
 use strict;
 use Test::More tests => 4;
 
-use_ok('File::Find::Match', qw( MATCH PASS IGNORE ));
+use_ok('File::Find::Match', qw( MATCH IGNORE file dir default));
 require_ok('File::Find::Match');
 
 my $finder = new File::Find::Match;

@@ -2,27 +2,62 @@ package File::Find::Match;
 use strict;
 use warnings;
 use base 'Exporter';
+use File::Basename ();
+
 use constant {
 	# Indices for the $rule arrays.
 	COND   => 0,
 	ACTION => 1,
 	NAME   => 2,
-
-	# Return values for matching functions.
-	PASS   => 400,
-	MATCH  => 401,
-	IGNORE => 402,
 };
+{
+	# Special return values for matching functions.
+	my $ignore;
+	my $match;
 
-BEGIN {
-	my  @constants   = qw( IGNORE MATCH PASS );
-	our @EXPORT      = @constants;
-	our @EXPORT_OK   = @constants;
-	our %EXPORT_TAGS = ( constants => \@constants );
+	use constant {
+		MATCH  => \$match,
+		IGNORE => \$ignore,
+	};
 }
 
-our $ID      = '$Id: Match.pm 284 2004-11-07 00:39:30Z dylan $';
-our $VERSION = 0.02;
+BEGIN {
+	my  @constants   = qw( IGNORE MATCH );
+	my  @func        = qw( file dir default );
+	our @EXPORT      = @constants;
+	our @EXPORT_OK   = (@constants, @func);
+	our %EXPORT_TAGS = (
+		constants => \@constants,
+		functions => \@func,
+		all       => [ @EXPORT_OK ],
+	);
+}
+
+our $ID      = '$Id: Match.pm 295 2004-11-13 02:42:36Z dylan $';
+our $VERSION = 0.05;
+
+sub file (&);
+sub dir (&);
+sub default (&);
+
+sub file (&) {
+	my $code = shift;
+
+	return (sub { -f $_ } => $code);
+}
+
+sub dir (&) {
+	my $code = shift;
+
+	return (sub { -d $_ } => $code);
+}
+
+sub default (&) {
+	my $code = shift;
+	
+	return (sub { 1 } => $code);
+}
+
 
 sub new {
 	my ($this) = shift;
@@ -36,11 +71,6 @@ sub new {
 sub initialize {
 	my ($me) = @_;
 
-	$me->{predicates} = {
-		file    => sub { -f $_ },
-		dir     => sub { -d $_ },
-		default => sub {  1    },
-	};
 	$me->{rules} = [];
 }
 
@@ -96,9 +126,6 @@ sub build_matcher {
 				
 				return 0 if $v == IGNORE;
 				return 1 if $v == MATCH;
-				next     if $v == PASS;
-				my $vstr = defined $v ? "'$v'" : "undef";
-				die "Bad return value ($vstr) for predicate $rule->[NAME]\n";
 			}
 		}
 	};
@@ -111,13 +138,21 @@ sub predicate {
 	
 	die "Undefined predicate!" unless defined $pred;
 	
-	if (not $ref and exists $me->{predicates}{$pred}) {
-		return $me->{predicates}{$pred};
-	} elsif ($ref eq 'Regexp') {
+	# If $pred is just a string,
+	# the predicate is that of equality.
+	if (not $ref) {
+		return sub { File::Basename::basename($_) eq $pred };
+	}
+	# If it is a qr// Regexp object,
+	# the predicate is the truth of the regex.
+	elsif ($ref eq 'Regexp') {
 		return sub { $_ =~ $pred };
-	} elsif ($ref eq 'CODE') {
+	}
+	# If it's a sub, just return it.
+	elsif ($ref eq 'CODE') {
 		return $pred;
-	} else {
+	}
+	else {
 		die "Unknown predicate: $pred";
 	}
 }
@@ -130,9 +165,6 @@ sub action {
 
 	if ($ref eq 'CODE') {
 		return $act;
-	} elsif ($ref eq 'ARRAY') {
-		my ($obj, $method) = (shift @$act, shift @$act);
-		return sub { $obj->$method(@$act) };
 	} else {
 		die "Unknown action: $act";
 	}
@@ -146,12 +178,12 @@ __END__
 File::Find::Match - Perform different actions on files based on file name.
 
 =head1 SYNOPSIS
-	
+
     #!/usr/bin/perl
 
     use strict;
     use warnings;
-    use File::Find::Match qw( :constants );
+    use File::Find::Match qw( :all );
     use lib 'blib';
 
     my $finder = new File::Find::Match;
@@ -165,14 +197,21 @@ File::Find::Match - Perform different actions on files based on file name.
         },
         qr/\.pl$/ => sub {
             print "This is a perl script: $_\n";
-            PASS; # let the following rules have a crack at it.
+            # let the following rules have a crack at it.
         },
         qr/filer\.pl$/ => sub {
             print "myself!!! $_\n";
             MATCH;
         },
-        dir => sub {
+        # "dir {" is the same as "sub { -d $_ } => sub {"
+        dir {
             print "Directory: $_\n";
+            MATCH;
+        },
+        # default is like an else clause for an if statement.
+        # It is run if none of the other rules return MATCH or IGNORE.
+        default {
+            print "Default handler.\n";
             MATCH;
         },
     );
@@ -208,7 +247,51 @@ using the specified rules.
 
 The return value of this function is unimportant.
 
+=head1 EXPORTS
+
+By default we export :constants.
+
+=head2 :constants
+
+we export the numeric constants C<PASS>, C<IGNORE>, and C<MATCH>.
+
+See L</Actions> for usage information on these constants.
+
+=head2 :functions
+
+We export a few functions that provide a bit of syntax sugar.
+All of them are prototyped with C<(&)>, and so you may call
+them as C<foo { ... }> instead of C<foo( sub { ... } )>.
+
+All of them return a predicate => action pair, also called a rule.
+
+=head3 file($coderef)
+
+This is shorthand for C<sub { -f $_ } =E<gt> $coderef>.
+
+=head3 dir($coderef)
+
+This is shorthand for C<sub { -d $_ } =E<gt> $coderef>.
+
+=head3 default($coderef)
+
+This is shorthand for C<sub { 1 } =E<gt> $coderef>.
+Think of it as similiar to and else clause.
+
+=head2 :all
+
+This is  :constants and :functions combined.
+
 =head1 PREDICATES AND ACTIONS
+
+A predicate is the code (or regexp, see below) used to determine if
+we want to process a file. An action is the code we use to process the file.
+By process, I mean anything from sending it through a templating engine to printing
+its name to C<STDOUT>.
+
+A predicate => action pair is called a rule.
+
+=head2 Predicates
 
 A predicate is one of: a Regexp reference from C<qr//>,
 a subroutine reference, or a string.
@@ -221,10 +304,19 @@ the filename.
 For coderef predicates, $_ is set to the filename and the subroutine is called.
 If it returns a true value, the predicate is true. Else the predicate is false.
 
-When the predicate is a string, it must be one of C<"file">, C<"dir">, or C<"default">.
-The C<"file"> predicate is true when the current filename is a file, in the C<-f> sense.
-The C<"dir"> predicate is true when the filename is a dir in the C<-d> sense,
-The C<"default"> predicate is always true.
+When the predicate is a string, it must match the basename of $_ (e.g. filename sans path) exactly.
+For example, "foo" will match "bar/foo", "bar/baz/foo", and "bar/baz/quux/foo".
+
+=head2 Actions
+
+An action is just a subroutine reference that is called when its associated
+predicate matches a file. When an action is called, $_ will be set to the filename.
+
+If an action returns C<IGNORE> or C<MATCH>, all following rules will not be tried.
+You should return C<IGNORE> when you do not want to recurse into a directory, and C<MATCH>
+otherwise. On non-directories, currently there is no difference between the two.
+
+If an action returns niether C<IGNORE> nor C<MATCH>, the next rule will be tried.
 
 =head1 AUTHOR
 
@@ -234,7 +326,7 @@ L<File::Find>, L<http://dylan.hardison.net>
 
 =head1 COPYRIGHT
 
-  Copyright (C) 2004 Dylan William Hardison.  All Rights Reserved.
+Copyright (C) 2004 Dylan William Hardison.  All Rights Reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
