@@ -1,222 +1,236 @@
 package File::Find::Match;
 use strict;
 use warnings;
-
+use base 'Exporter';
 use constant {
-	IGNORE   => undef,
-	SKIP     => 0,
-	DONE     => 1,
+	# Indices for the $rule arrays.
+	COND   => 0,
+	ACTION => 1,
+	NAME   => 2,
+
+	# Return values for matching functions.
+	PASS   => 400,
+	MATCH  => 401,
+	IGNORE => 402,
 };
 
-use Exporter;
-use base 'Exporter';
+BEGIN {
+	my  @constants   = qw( IGNORE MATCH PASS );
+	our @EXPORT      = @constants;
+	our @EXPORT_OK   = @constants;
+	our %EXPORT_TAGS = ( constants => \@constants );
+}
 
-our $VERSION     = 0.01;
-our @EXPORT      = ();
-our @EXPORT_OK   = qw( find match DONE SKIP IGNORE );
-our %EXPORT_TAGS = (
-	constants => [qw( DONE SKIP IGNORE )],
-	subs      => [qw( find match )],
-	all       => [@EXPORT_OK],
-);
+our $ID      = '$Id: Match.pm 284 2004-11-07 00:39:30Z dylan $';
+our $VERSION = 0.02;
 
+sub new {
+	my ($this) = shift;
+	my $me = bless {}, $this;
+	
+	$me->initialize(@_);
 
-=head1 NAME
+	return $me;
+}
 
-File::Find::Match - Perform actions on files matching a regexp.
+sub initialize {
+	my ($me) = @_;
 
-=head1 SYNOPSIS
-
-
- use File::Find::Match qw( :all );
-  my $matcher = match(
-	  qr/\.pm$/ => sub {
-		  print "Perl module: $_\n";
-		  return SKIP;
-	  },
-	  qr/\.svn/ => sub {
-		  # tell find() to ignore .svn dirs:
-		  return IGNORE;
-	  },
-	  qr/\.pod$/ => sub {
-		  print "Pod file: $_\n";
-		  return DONE;
-	  },
-	  default => sub {
-		  print "Other kind of file: $_\n";
-	  },
-  );
-  find($matcher, '.');
-
-=head1 DESCRIPTION
-
-This module implements two functions, find() and match().
-
-find() performs a breadth-first traversal of one or more directories,
-and match() creates a closure for use in performing various on actions
-depending on the filename.
-
-=head1 EXPORT
-
-None by default.
-
-=head2 Export Tags
-
-=over 4
-
-=item :all
-
-same as :constants and :subs
-
-=item :subs
-
-C<find()> and C<match()>
-
-=item :constants
-
-C<DONE>, C<SKIP>, and C<IGNORE>.
-
-=back
-
-=head1 FUNCTIONS
-
-The following functions are optionally exported.
-
-=cut
-
-
-=head2 find($visitor, @dirs)
-
-Perform breadth-first directory traversal of all @dirs,
-calling the callback function reference $visitor for each file and directory seen.
-$visitor takes no arguments, and instead uses $_ for the each file name.
-$_ will have a (possibly relative) path prepended to it. find() I<does not>
-call chdir().
-
-Unlike L<File::Find>, the return value of $visitor is important.
-If it is a false value, the current file will be skipped.
-This only really matters for directories, as it prevents them from being added to the queue.
-
-=cut
+	$me->{predicates} = {
+		file    => sub { -f $_ },
+		dir     => sub { -d $_ },
+		default => sub {  1    },
+	};
+	$me->{rules} = [];
+}
 
 sub find {
-	my $cb = shift;
-	my @files = @_;
-	my ($file);
+	my ($me, @files) = @_;
+	my $matcher = $me->build_matcher();
+	
+	unless (@files) {
+		@files = ('.');
+	}
 
 	while (@files) {
-		$file = shift @files;
-		$_ = $file;
-		next unless $cb->();
+		my $path = shift @files;
+		$_ = $path;
+		next unless $matcher->();
 		
-		if (-d $file) {
+		if (-d $path) {
 			my $dir;
-			opendir $dir, $file;
-			push @files, map { "$file/$_"  } grep {  $_ ne '.' and $_ ne '..' } readdir $dir;
+			opendir $dir, $path;
+			
+			# read all files from $dir
+			# skip . and ..
+			# prepend $path/ to the file name.
+			# append to @files.
+			push @files, map { "$path/$_"  } grep(!/^\.\.?$/, readdir $dir);
+			
 			closedir $dir;
 		}
 	}
 }
 
-=head2 match(%actions)
-
-This function takes a list of key-value pairs. The keys are either
-regexp references from C<qr//> or the string 'default'. The values are subroutine references.
-
-match() will return a reference to newly-created function.
-
-This function, which we will call visitor, that is returned will check run each regular expression
-on the value of $_, and if there is a match it will call the associated function reference.
-If this function ref returns C<SKIP>, the next pattern will be tried.
-If it returns C<IGNORE>, the visitor function will return undef.
-If it returns C<DONE>, the visitor function will return a true value.
-
-After all patterns have been tried, the visitor function will call the function
-reference associated with the 'default' string, unless we got C<IGNORE>
-or the default action was not specified.
-
-  match(
-	  qr/\.pm$/ => sub {
-		  print "Perl module! $_\n";
-		  return SKIP;
-	  },
-	  qr/\.pod$/ => sub {
-		  print "Pod file! $_\n";
-		  return SKIP;
-	  },
-	  qr/\.pl$/ => sub {
-		  print "Perl file! $_\n";
-		  return DONE;
-	  },
-	  qr/\.svn/ => sub {
-		  return IGNORE
-	  },
-	  default => sub {
-		  print "Called for every file, unless ignored or done-ed.";
-		  # make sure to return a true value here.
-	  });
-  
-  # the above is functionally the same as...
-  sub {
-	  if (/\.pm$/) {
-		  print "Perl module! $_\n";
-	  }
-	  if (/\.pod$/) {
-		  print "Pod file! $_\n";
-	  }
-	  if (/\.pl$/) {
-		  print "Perl file! $_\n";
-		  goto default;
-	  }
-	  if (/\.svn/) {
-		  return undef;
-	  }
-	  default:
-	  print "Called for every file, unless ignored or done-ed.";
-	  return 1;
-  };
-
-  # So, match() makes things a bit more elegant, no?
-=cut
-
-sub match {
-	my @acts;
-	my $default = \&OK;
+# Alias rule() to rules()
+*rule = \&rules;
+sub rules {
+	my $me = shift;
 	
 	while (@_) {
-		my @pair = (shift, shift);
-		
-		if ($pair[0] eq 'default') {
-			$default = $pair[1];
-			next;
-		}
-			
-		push @acts, \@pair;
+		my ($predicate, $action) = (shift, shift);
+		my $pred = $me->predicate($predicate);
+		my $act  = $me->action($action);
+		push @{ $me->{rules} }, [ $pred, $act, "$predicate" ];
 	}
+}
+
+sub build_matcher {
+	my $me = shift;
+	my @rules = @{ $me->{rules} };
 	
 	sub {
-		foreach my $pair (@acts) {
-			if ($_ =~ $pair->[0]) {
-				my $v = $pair->[1]->($_);
-
-				# If IGNORE.
-				return unless defined $v; # IGNORE
-				next   unless $v;         # SKIP
-				if ($v) { # DONE
-					$default->();
-					return $v;
-				}
+		foreach my $rule (@rules) {
+			if ($rule->[COND]->()) {
+				my $v = $rule->[ACTION]->();
+				
+				return 0 if $v == IGNORE;
+				return 1 if $v == MATCH;
+				next     if $v == PASS;
+				my $vstr = defined $v ? "'$v'" : "undef";
+				die "Bad return value ($vstr) for predicate $rule->[NAME]\n";
 			}
 		}
-		return $default->();
 	};
 }
+
+
+sub predicate {
+	my ($me, $pred) = @_;
+	my $ref =  ref($pred) || '';
+	
+	die "Undefined predicate!" unless defined $pred;
+	
+	if (not $ref and exists $me->{predicates}{$pred}) {
+		return $me->{predicates}{$pred};
+	} elsif ($ref eq 'Regexp') {
+		return sub { $_ =~ $pred };
+	} elsif ($ref eq 'CODE') {
+		return $pred;
+	} else {
+		die "Unknown predicate: $pred";
+	}
+}
+
+sub action {
+	my ($me, $act) = @_;
+	my $ref = ref($act) || '';
+
+	die "Undefined action!" unless defined $act;
+
+	if ($ref eq 'CODE') {
+		return $act;
+	} elsif ($ref eq 'ARRAY') {
+		my ($obj, $method) = (shift @$act, shift @$act);
+		return sub { $obj->$method(@$act) };
+	} else {
+		die "Unknown action: $act";
+	}
+}
+
+1;
+__END__
+
+=head1 NAME
+
+File::Find::Match - Perform different actions on files based on file name.
+
+=head1 SYNOPSIS
+	
+    #!/usr/bin/perl
+
+    use strict;
+    use warnings;
+    use File::Find::Match qw( :constants );
+    use lib 'blib';
+
+    my $finder = new File::Find::Match;
+    $finder->rules(
+        qr/\.svn/    => sub { IGNORE },
+        qr/_build/   => sub { IGNORE },
+        qr/\bblib\b/ => sub { IGNORE },
+        qr/\.pm$/    => sub {
+            print "Perl module: $_\n";
+            MATCH;
+        },
+        qr/\.pl$/ => sub {
+            print "This is a perl script: $_\n";
+            PASS; # let the following rules have a crack at it.
+        },
+        qr/filer\.pl$/ => sub {
+            print "myself!!! $_\n";
+            MATCH;
+        },
+        dir => sub {
+            print "Directory: $_\n";
+            MATCH;
+        },
+    );
+
+    $finder->find('.');
+
+=head1 DESCRIPTION
+
+This module is allows one to recursively process files and directories
+based on the filename. It is meant to be more flexible than File::Find.
+
+=head1 METHODS
+
+=head2 new(%opts)
+
+Creates a new C<File::Find::Match> object.
+Currently %opts is ignored.
+
+=head2 rules($predicate => $action, ...)
+
+rules() accpets a list of $predicate => $action pairs.
+
+See L</PREDICATES AND ACTIONS> for a detailed description.
+
+=head2 rule($predicate => $action)
+
+This is just an alias to rules().
+
+=head2 find(@dirs)
+
+Start the breadth-first search of @dirs (defaults to '.' if empty)
+using the specified rules.
+
+The return value of this function is unimportant.
+
+=head1 PREDICATES AND ACTIONS
+
+A predicate is one of: a Regexp reference from C<qr//>,
+a subroutine reference, or a string.
+An action is a subroutine reference that is called on
+a filename when a predicate matches it.
+
+Naturally for regexp predicates, matching occures when the pattern matches
+the filename.
+
+For coderef predicates, $_ is set to the filename and the subroutine is called.
+If it returns a true value, the predicate is true. Else the predicate is false.
+
+When the predicate is a string, it must be one of C<"file">, C<"dir">, or C<"default">.
+The C<"file"> predicate is true when the current filename is a file, in the C<-f> sense.
+The C<"dir"> predicate is true when the filename is a dir in the C<-d> sense,
+The C<"default"> predicate is always true.
 
 =head1 AUTHOR
 
 Dylan William Hardison E<lt>dhardison@cpan.orgE<gt>
 
-L<http://dylan.hardison.net/>
+L<File::Find>, L<http://dylan.hardison.net>
 
 =head1 COPYRIGHT
 
@@ -224,4 +238,3 @@ L<http://dylan.hardison.net/>
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
-

@@ -1,54 +1,27 @@
-File::Find::Match version 0.01
+File::Find::Match version 0.02
 ===================
 
 This module provides a replacement for File::Find,
 with some difference. Major difference include:
   * breadth-first algorithm.
-  * Return value of callback \&wanted function is important,
-    and is used to determine if we are to descend into a directory
-	or not.
-
-It also includes a function for greating \&wanted functions
-that will execute different actions depending on the file name matching a regular expression.
-
-Simple example:
-
-#!/usr/bin/perl
-
-use strict;
-use warnings;
-use File::Find::Tsite qw( :all );
-
-find(match(
-	qr/\.svn/  => sub { IGNORE },
-	qr/_build/ => sub { IGNORE },
-	qr/\.pm$/  => sub {
-		print "Perl module: $_\n";
-		return DONE; # default is still executed.
-	},
-	default    => sub {
-		if (-d $_) {
-			print "$_/\n";
-		} else {
-			print "$_\n";
-		}
-	},
-), '.');
-
-
+  * Only traverses directories we're interested in.
 
 INSTALLATION
 
 To install this module type the following:
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+   perl Build.PL
+   ./Build
+   ./Build test
+   ./Build install
+
+If you do not have Module::Build installed, run Makefile.PL
+to install it, or grab it from CPAN.
 
 DEPENDENCIES
 
-This module does not require any other modules.
+This module does not require any other modules at runtime,
+but requires Module::Build for installation.
 
 COPYRIGHT AND LICENCE
 

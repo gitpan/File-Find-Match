@@ -1,0 +1,8 @@
+2004-11-01  Dylan Hardison <dhardison@cpan.org>
+
+	* lib/File/Find/Match.pm: Added documentation, made object-oriented,
+	removed functional interface.
+
+2004-10-28  Dylan Hardison <dhardison@cpan.org>
+
+	* ChangeLog: added change log. :)

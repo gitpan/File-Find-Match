@@ -2,22 +2,30 @@
 
 use strict;
 use warnings;
-use File::Find::Tsite qw( :all );
+use File::Find::Match qw( :constants );
+use lib 'blib';
 
-my $finder = match(
-	qr/\.svn/  => sub { IGNORE },
-	qr/_build/ => sub { IGNORE },
-	qr/\.pm$/  => sub {
+my $finder = new File::Find::Match;
+$finder->rules(
+	qr/\.svn/    => sub { IGNORE },
+	qr/_build/   => sub { IGNORE },
+	qr/\bblib\b/ => sub { IGNORE },
+	qr/\.pm$/    => sub {
 		print "Perl module: $_\n";
-		return DONE; # default is still executed.
+		return MATCH;
 	},
-	default    => sub {
-		if (-d $_) {
-			print "$_/\n";
-		} else {
-			print "$_\n";
-		}
+	qr/\.pl$/ => sub {
+		print "This is a perl script: $_\n";
+		return PASS; # let the following rules have a crack at it.
+	},
+	qr/filer\.pl$/ => sub {
+		print "myself!!! $_\n";
+		return MATCH;
+	},
+	dir => sub {
+		print "Directory: $_\n";
+		MATCH;
 	},
 );
 
-find($finder, '.');
+$finder->find('.');

@@ -1,8 +1,10 @@
 Build.PL
-Changes
+ChangeLog
 examples/filer.pl
 lib/File/Find/Match.pm
+Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
 META.yml
 README
+t/001_basic.t
