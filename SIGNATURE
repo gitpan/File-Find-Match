@@ -1,0 +1,38 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.35.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It would check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 f2edfa979f930faeec1d02062c65089cf8a4429c Build.PL
+SHA1 305486248b145360b1b8e304236540e8a6ce3c59 ChangeLog
+SHA1 4633518390ed90eb33a4c15de06b06d2d41558dd MANIFEST
+SHA1 cadb929137f5fbfb41adaf1a104d9440787e8e86 MANIFEST.SKIP
+SHA1 d4320aae63ec1b2d2aaf80e067e83a117548fe89 META.yml
+SHA1 1099db72cd05ad1cad02a0b579d5f8c9786e1e92 Makefile.PL
+SHA1 f5bb59061a8abefad6a5b56f182dd4a3b274dc00 README
+SHA1 da1585b44cfd969758017585cd17330ba2a76223 examples/filer.pl
+SHA1 940f4325021dcd3cf333ac468b767e71d26f4052 lib/File/Find/Match.pm
+SHA1 afe62f1326d161ec251de343c76a6640d1729b7c lib/File/Find/Match/Sugar.pm
+SHA1 42bd63dcf0b5a49772c57590845e39108a3f8495 lib/File/Find/Match/Util.pm
+SHA1 d772b0a26c072eed5e34de9a7bac46a802679597 t/001_basic.t
+SHA1 5624233398035304fb62182c797de6249ce2e9da t/002_matcher.t
+SHA1 d78c1fb558694af6a224d4f8d49533c84b72b425 t/003_predicates.t
+SHA1 3ef8fd15d5146901b0a5c3172badac3d5d6a0b48 t/004_pod.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFByo0lI5/IM/Ms9vYRArv7AJ9lX6daLp4G0JfNIELU43n5Bnmv4gCcCGL2
+BruYJHIZVoKIvG+mVHhW6RM=
+=A7DV
+-----END PGP SIGNATURE-----

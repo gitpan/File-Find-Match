@@ -3,8 +3,16 @@ ChangeLog
 examples/filer.pl
 lib/File/Find/Match.pm
 lib/File/Find/Match/Sugar.pm
+lib/File/Find/Match/Util.pm
+Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
 META.yml
 README
+SIGNATURE
 t/001_basic.t
+t/002_matcher.t
+t/003_predicates.t
+t/004_pod.t
+
+SIGNATURE    Added here by Module::Build

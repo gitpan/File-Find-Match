@@ -14,6 +14,8 @@ can_ok($finder,
 		new
 		find
 		rules
+        _make_predicate
+        _matcher
 	)
 );
 

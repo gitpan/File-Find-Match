@@ -1,4 +1,4 @@
-File::Find::Match version 0.06
+File::Find::Match version 0.08
 ===================
 
 This module provides a replacement for File::Find,

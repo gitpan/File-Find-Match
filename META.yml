@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: File-Find-Match
-version: 0.07
+version: 0.08
 author: Dylan William Hardison <dhardison@cpan.org>
 abstract: |-
   Perform different actions on files based on file name.
@@ -12,8 +12,10 @@ build_requires:
 provides:
   File::Find::Match:
     file: lib/File/Find/Match.pm
-    version: 0.07
+    version: 0.08
   File::Find::Match::Sugar:
     file: lib/File/Find/Match/Sugar.pm
-    version: 0.02
+  File::Find::Match::Util:
+    file: lib/File/Find/Match/Util.pm
+    version: 0.08
 generated_by: Module::Build version 0.25
