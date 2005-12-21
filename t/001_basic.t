@@ -15,7 +15,6 @@ can_ok($finder,
 		find
 		rules
         _make_predicate
-        _matcher
 	)
 );
 

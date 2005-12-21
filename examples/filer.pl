@@ -25,7 +25,7 @@ $finder->rules(
 		print "this is also filer.pl! $_[0]\n";
 		return MATCH;
 	},
-	-d => sub {
+	dir => sub {
 		print "Directory: $_[0]\n";
 		MATCH;
 	},

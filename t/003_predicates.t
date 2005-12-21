@@ -6,7 +6,7 @@ use Test::More;
 my @Files = qw( Build.PL README );
 my @Dirs  = qw( lib t );
 
-plan tests => ( (@Files * 3) + (@Dirs * 3) + 7);
+plan tests => ( (@Files * 3) + (@Dirs * 3) + 8);
 
 
 use File::Find::Match;
@@ -64,6 +64,17 @@ if ($@) {
     fail("undef pred should die! Bah.");
 }
 
+
+# Should die if predicate is array or hashref.
+eval {
+    $finder->_make_predicate([]);
+};
+if ($@) {
+    pass("[] pred died. Yay!");
+} else {
+    fail("[] pred should die! Bah.");
+}
+
 # Test code predicates.
 my $true  = sub { 1 };
 my $false = sub { 0 };
@@ -80,5 +91,7 @@ ok($truep->(),      'code pred 1');
 ok(!$falsep->(),    'code pred 2');
 ok($funp->('quux'), 'code pred 3');
 ok(!$funp->('bar'), 'code pred 3');
+
+
 
 

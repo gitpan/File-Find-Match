@@ -1,3 +1,46 @@
+package File::Find::Match::Util;
+require 5.008;
+use strict;
+use warnings;
+use Carp;
+use base 'Exporter';
+use File::Basename ();
+
+our $VERSION = '0.10';
+our @EXPORT     = qw( );
+our @EXPORT_OK  = qw( filename ext wildcard );
+
+sub filename ($) {
+    my $basename = shift or croak 'Usage: filename($basename)';
+    
+    return sub {
+        File::Basename::basename($_[0]) eq $basename;
+    };
+}
+
+sub ext ($) {
+	my $ext = shift or croak 'Usage: ext($extension)';
+
+	return sub {
+		my $s = shift or croak "predicate ext($ext) called with bad arguments";
+		substr($s, rindex($s, '.') + 1) eq $ext;
+	};
+}
+
+sub wildcard ($) {
+	my $pat = shift or croak 'Usage: wildcard($pattern)';
+	my $re = quotemeta $pat;
+	$re =~ s/\\\*/(.+)/g;
+	my $regex = qr/$re/;
+	return sub {
+		$_[0] =~ $regex;
+	};
+}
+
+
+1;
+__END__
+
 =head1 NAME
 
 File::Find::Match::Util - Some exportable utility functions for writing rulesets.
@@ -12,24 +55,25 @@ File::Find::Match::Util - Some exportable utility functions for writing rulesets
    $pred->('baz/foobar.pl')     == 1;
    $pred->('baz/bar/foobar.pl') == 1;
    $pred->('bazquux.pl')        == 0;
+
+   $pred = ext('pm');
+
+   $pred->('foo.pm')  == 1;
+   $pred->('foo.png') == 0;
+   $pred->('foo.pmg') == 0;
+
+   $pred = wildcard('*.pod');
+   $pred->('foo.pod')     == 1;
+   $pred->('foo/bar.pod') == 1;
+   $pred->('foo/.pod')    == 1;
+   $pred->('Spoon')       == 0;
+   
      
 =head1 DESCRIPTION
 
 This provides a few handy functions which create predicates
 for L<File::Find::Match>.
 
-=cut
-
-package File::Find::Match::Util;
-require 5.008;
-use strict;
-use warnings;
-use base 'Exporter';
-use File::Basename ();
-
-our $VERSION = 0.08;
-our @EXPORT     = qw( );
-our @EXPORT_OK  = qw( filename );
 
 =head1 FUNCTIONS
 
@@ -45,21 +89,24 @@ Essentially, C<filename('foobar')> is equivalent to:
 
   sub { File::Basename::basename($_[0]) eq 'foobar' }
 
-=cut
+=head2 ext($extension)
 
-sub filename {
-    my $basename = shift;
-    
-    return sub {
-        File::Basename::basename($_[0]) eq $basename;
-    };
-}
+This function returns a subroutine reference, which takes argument $file
+and returns true if it ends with C<".$extension">.
+
+=head2 wildcard($pattern)
+
+Perform shell-like wildcard matching.
+Currently only * is supported.
+* is exactly equivelent to regexp .+, which is possibly incorrect.
+
+Patches are welcome.
 
 =head1 EXPORTS
 
 None by default. 
 
-L</filename($basename)> upon request.
+L</filename($basename)>, L</ext($extension)>, L</wildcard($pattern)>.
 
 =head1 BUGS
 
@@ -81,7 +128,7 @@ L<http://dylan.hardison.net/>
 
 =head1 SEE ALSO
 
-C<File::Find::Match>, L<File::Find>, L<perl(1)>.
+L<File::Find::Match>, L<File::Find>, L<perl(1)>.
 
 =head1 COPYRIGHT and LICENSE
 
@@ -89,5 +136,3 @@ Copyright (C) 2004 Dylan William Hardison.  All Rights Reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
-
-1;

@@ -1,3 +1,162 @@
+package File::Find::Match;
+use 5.008;
+use strict;
+use warnings;
+use base 'Exporter';
+use File::Basename ();
+use Carp;
+
+use constant {
+	RULE_PREDICATE   => 0,
+	RULE_ACTION      => 1,
+	
+    # Author's birth year: 1985. :)
+	IGNORE => \19,
+	MATCH  => \85,
+};
+
+
+our $Id         = '$Id: Match.pm 355 2005-01-13 22:14:34Z dylan $';
+our $VERSION    = '0.10';
+our @EXPORT     = qw( IGNORE MATCH );
+our @EXPORT_OK  = @EXPORT;
+our %EXPORT_TAGS = (
+	constants => [ @EXPORT ],
+	all       => [ @EXPORT ],
+);
+
+sub new {
+	my ($this) = shift;
+	my $self = bless {}, $this;
+	
+    # Rule list
+	$self->{rules} = [];
+
+    # Named predicates:
+    $self->{predicates} = {
+        file => sub { -f $_[0] },
+        dir  => sub { -d $_[0] },
+    };
+    
+	return $self;
+}
+
+sub rules {
+	my $self = shift;
+	
+	while (@_) {
+		my ($predicate, $action) = (shift, shift);
+        croak "Undefined action!"          unless defined  $action;
+		my $act  = $self->_make_action($action);
+        if ($predicate eq 'default') {
+            $self->{default} = $action;
+            next;
+        }
+        
+		my $pred = $self->_make_predicate($predicate);
+        
+		push @{ $self->{rules} }, [$pred, $action];
+	}
+}
+
+*rule = \&rules;
+
+sub find {
+	my ($self, @files) = @_;
+	my @rules   = @{ $self->{rules} };
+
+	if (exists $self->{default}) {
+		push @rules, [ sub { 1 }, $self->{default} ];
+	}
+
+	unless (@files) {
+		@files = ('.');
+	}
+
+	FILE: while (@files) {
+		my $path = shift @files;
+		
+		RULE: foreach my $rule (@rules) {
+			if ($rule->[RULE_PREDICATE]->($path)) {
+				my $v = $rule->[RULE_ACTION]->($path) || 0;
+				if (ref $v) {
+					next FILE if $v == IGNORE;
+					last RULE if $v == MATCH;
+				}
+			}
+		}
+				
+		
+		if (-d $path) {
+			my $dir;
+			opendir $dir, $path;
+			
+			# read all files from $dir
+			# skip . and ..
+			# prepend $path/ to the file name.
+			# append to @files.
+			push @files, map { "$path/$_" } grep(!/^\.\.?$/, readdir $dir);
+			
+			closedir $dir;
+		}
+	}
+}
+
+
+# Take a predicate and return a coderef.
+sub _make_predicate {
+	my ($self, $pred) = @_;
+	my $ref =  ref($pred) || '';
+	
+	croak "Undefined predicate!" unless defined $pred;
+	
+	# If it is a qr// Regexp object,
+	# the predicate is the truth of the regex.
+    if ($ref eq 'Regexp') {
+		return sub { $_[0] =~ $pred };
+	}
+	# If it's a sub, just return it.
+	elsif ($ref eq 'CODE') {
+		return $pred;
+	} 
+    elsif (not $ref) {
+        if (exists $self->{predicates}{$pred}) {
+            return $self->{predicates}{$pred};
+        } else {
+            my $code = eval "sub { \$_ = shift; $pred }";
+            if ($@) {
+                die $@;
+            }
+            return $code;
+        }
+    }   
+    # All other values are illegal.
+	else {
+		croak "Predicate must be code or regexp reference.";
+	}
+}
+
+# Take an action and return a coderef.
+sub _make_action {
+	my ($self, $act) = @_;
+	
+	if (UNIVERSAL::isa($act, 'UNIVERSAL')) {
+		# it's an object. Does it support action?
+		if ($act->can('action')) {
+			return sub { $act->action(shift) };
+		} else {
+			croak "Action object must support action() method!"
+		}
+	} elsif (ref($act) eq 'CODE') {
+		return $act;
+	} else {
+		croak "Action must be a coderef or an object.";
+	}
+}
+
+1;
+__END__
+
 =head1 NAME
 
 File::Find::Match - Perform different actions on files based on file name.
@@ -46,36 +205,6 @@ File::Find::Match - Perform different actions on files based on file name.
 This module is allows one to recursively process files and directories
 based on the filename. It is meant to be more flexible than File::Find.
 
-=cut
-
-package File::Find::Match;
-use 5.008;
-use strict;
-use warnings;
-use base 'Exporter';
-use File::Basename ();
-use Carp;
-
-use constant {
-	RULE_PREDICATE   => 0,
-	RULE_ACTION      => 1,
-	
-    # Author's birth year: 1985. :)
-	IGNORE => \19,
-	MATCH  => \85,
-    VALUE  => \14, # day of month.
-};
-
-
-our $Id         = '$Id: Match.pm 345 2004-12-23 09:03:19Z dylan $';
-our $VERSION    = 0.08;
-our @EXPORT     = qw( IGNORE MATCH );
-our @EXPORT_OK  = @EXPORT;
-our %EXPORT_TAGS = (
-	constants => [ @EXPORT ],
-	all       => [ @EXPORT ],
-);
-
 =head1 METHODS
 
 =head2 new(%opts)
@@ -86,59 +215,15 @@ Currently %opts is ignored.
 If you are going to sublcass C<File::Find::Match>, you may
 override initialize() which new() calls right after object creation.
 
-=cut
-
-sub new {
-	my ($this) = shift;
-	my $me = bless {}, $this;
-	
-    # Rule list
-	$me->{rules} = [];
-
-    # Named predicates:
-    $me->{predicates} = {
-        file => sub { -f $_[0] },
-        dir  => sub { -d $_[0] },
-    };
-    
-	return $me;
-}
-
-
 =head2 rules($predicate => $action, ...)
 
 rules() accpets a list of $predicate => $action pairs.
 
 See L</RULES> for a detailed description.
 
-=cut
-
-sub rules {
-	my $me = shift;
-	
-	while (@_) {
-		my ($predicate, $action) = (shift, shift);
-        croak "Undefined action!"          unless defined  $action;
-        croak "Action not CODE reference!" unless ref $action eq 'CODE';
-        
-        if ($predicate eq 'default') {
-            $me->{default} = $action;
-            next;
-        }
-        
-		my $pred = $me->_make_predicate($predicate);
-        
-		push @{ $me->{rules} }, [$pred, $action];
-	}
-}
-
 =head2 rule($predicate => $action)
 
 This is just an alias to rules().
-
-=cut 
-
-*rule = \&rules;
 
 =head2 find(@dirs)
 
@@ -146,35 +231,6 @@ Start the breadth-first search of @dirs (defaults to '.' if empty)
 using the specified rules.
 
 The return value of this function is unimportant.
-
-=cut
-
-sub find {
-	my ($me, @files) = @_;
-	my $matcher = $me->_matcher();
-	
-	unless (@files) {
-		@files = ('.');
-	}
-
-	while (@files) {
-		my $path = shift @files;
-		next unless $matcher->($path);
-		
-		if (-d $path) {
-			my $dir;
-			opendir $dir, $path;
-			
-			# read all files from $dir
-			# skip . and ..
-			# prepend $path/ to the file name.
-			# append to @files.
-			push @files, map { "$path/$_"  } grep(!/^\.\.?$/, readdir $dir);
-			
-			closedir $dir;
-		}
-	}
-}
 
 =head1 EXPORTS
 
@@ -192,8 +248,6 @@ we want to process a file.
 An action is the code we use to process the file.
 By process, I mean anything from sending it through a templating engine to printing
 its name to C<STDOUT>.
-
-
 
 
 =head2 Predicates
@@ -223,41 +277,6 @@ Thus a predicate of '-r' is the same as sub { -r $_[0] } (because -r defaults to
 Any exceptions (e.g. calling C<die()>, or synax errors) within the eval'd perl code
 will be raised to the caller.
 
-=cut
-
-# Take a predicate and return a coderef.
-sub _make_predicate {
-	my ($me, $pred) = @_;
-	my $ref =  ref($pred) || '';
-	
-	die "Undefined predicate!" unless defined $pred;
-	
-	# If it is a qr// Regexp object,
-	# the predicate is the truth of the regex.
-    if ($ref eq 'Regexp') {
-		return sub { $_[0] =~ $pred };
-	}
-	# If it's a sub, just return it.
-	elsif ($ref eq 'CODE') {
-		return $pred;
-	} 
-    elsif (not $ref) {
-        if (exists $me->{predicates}{$pred}) {
-            return $me->{predicates}{$pred};
-        } else {
-            my $code = eval "sub { \$_ = shift; $pred }";
-            if ($@) {
-                die $@;
-            }
-            return $code;
-        }
-    }   
-    # All other values are illegal.
-	else {
-		die "Predicate must be code or regexp reference.";
-	}
-}
-
 
 =head2 Actions
 
@@ -268,34 +287,10 @@ its first argument will be the filename.
 
 If an action returns C<IGNORE> or C<MATCH>, all following rules will not be tried.
 You should return C<IGNORE> when you do not want to recurse into a directory, and C<MATCH>
-otherwise. On non-directories, currently there is no difference between the two.
+otherwise. On non-directories, both C<MATCH> and C<IGNORE> do the same thing: 
+they prevent the next rule from being tried.
 
 If an action returns niether C<IGNORE> nor C<MATCH>, the next rule will be tried.
-
-=cut
-
-sub _matcher {
-	my $me      = shift;
-	my @rules   = @{ $me->{rules} };
-    my $default = $me->{default} || sub { };
-	
-	sub {
-        my $file = shift;
-        
-		foreach my $rule (@rules) {
-			if ( $rule->[RULE_PREDICATE]->($file) ) {
-				my $v = $rule->[RULE_ACTION]->($file) || 0;
-				
-				return 0 if $v == IGNORE;
-				return 1 if $v == MATCH;
-			}
-		}
-        my $v = $default->($file) || 0;
-		return 0 if $v == IGNORE;
-		return 1 if $v == MATCH;
-        return undef;
-	};
-}
 
 =head1 BUGS
 
@@ -313,11 +308,11 @@ L<http://dylan.hardison.net/>
 
 =head1 SEE ALSO
 
-C<File::Find::Match::Util>, L<File::Find>, L<perl(1)>.
+L<File::Find::Match::Util>, L<File::Find>, L<perl(1)>.
 
 =head1 COPYRIGHT and LICENSE
 
-Copyright (C) 2004 Dylan William Hardison.  All Rights Reserved.
+Copyright (C) 2004, 2005 Dylan William Hardison.  All Rights Reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
