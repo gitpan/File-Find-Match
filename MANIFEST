@@ -1,5 +1,6 @@
 Build.PL
 ChangeLog
+examples/delink
 examples/filer.pl
 lib/File/Find/Match.pm
 lib/File/Find/Match/Sugar.pm
@@ -13,4 +14,3 @@ t/004_pod.t
 t/005_find.t
 t/006_util.t
 META.yml
-SIGNATURE    Added here by Module::Build

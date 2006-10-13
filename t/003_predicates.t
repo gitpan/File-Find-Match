@@ -14,7 +14,7 @@ my $finder = new File::Find::Match;
 
 
 # Test 'dir' named predicate
-my $dirp = $finder->_make_predicate('dir');
+my $dirp = $finder->_make_predicate('-d');
 foreach my $dir (@Dirs) {
     ok($dirp->($dir), "Testing 'dir' predicate on $dir");
 }
@@ -25,7 +25,7 @@ foreach my $file (@Files) {
 
 
 # Test 'file' named predicate.
-my $filep = $finder->_make_predicate('file');
+my $filep = $finder->_make_predicate('-f');
 foreach my $file (@Files) {
     ok($filep->($file), "Testing 'file' predicate on $file");
 }

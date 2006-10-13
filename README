@@ -36,7 +36,7 @@ If it is not installed, the t/004_pod.t test will be skipped.
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2004 by Dylan William Hardison
+Copyright (C) 2004, 2006 by Dylan William Hardison
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.4 or,

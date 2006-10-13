@@ -14,6 +14,7 @@ sub filename ($) {
     my $basename = shift or croak 'Usage: filename($basename)';
     
     return sub {
+    	croak "filename() predicate passed undef filename!" if not defined $_[0];
         File::Basename::basename($_[0]) eq $basename;
     };
 }

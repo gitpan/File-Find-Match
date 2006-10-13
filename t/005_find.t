@@ -8,19 +8,16 @@ use Fatal qw( open close );
 
 my $have  = maniread();
 my %found = ();
-my $finder = new File::Find::Match;
-
+my @rules;
 my $fh;
 open $fh, 'MANIFEST.SKIP';
 while (my $re = <$fh>) {
     chomp $re;
-    $finder->rule(
-        qr/$re/ => sub { IGNORE },
-    );
+    push @rules, qr/$re/ => sub { IGNORE };
 }
 close $fh;
 
-$finder->rules(
+push(@rules,
     dir     => sub { MATCH },
     default => sub { 
         my $s = shift;
@@ -29,17 +26,15 @@ $finder->rules(
         return undef;
     },
 );
-
+my $finder = new File::Find::Match(@rules);
 $finder->find;
 
 is_deeply($have, \%found, 'Check directory structure with File::Find::Match');
 
 %found = ();
-$finder = new File::Find::Match;
-
-$finder->rules(
-    dir     => sub { MATCH },
-    file => sub { 
+$finder = new File::Find::Match(
+    -d => sub { MATCH },
+    -f => sub { 
         my $s = shift;
         $s =~ s!^\./!!;
         $found{$s} = $have->{$s} = 1;
@@ -51,7 +46,7 @@ $finder->find('.');
 
 is_deeply($have, \%found, 'Check directory structure with File::Find::Match');
 
-eval { $finder->rule(dir => []) };
+eval { File::Find::Match->new(dir => []) };
 
 if ($@) {
 	pass("Non-CODEref action died. Yay!");
@@ -59,7 +54,7 @@ if ($@) {
 	fail("Non-CODEref action did not died. Booh!");
 }
 
-eval { $finder->rule(dir => undef) };
+eval { File::Find::Match->new(dir => undef) };
 
 if ($@) {
 	pass("undef action died. Yay!");

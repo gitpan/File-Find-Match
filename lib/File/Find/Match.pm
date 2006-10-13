@@ -16,8 +16,7 @@ use constant {
 };
 
 
-our $Id         = '$Id: Match.pm 355 2005-01-13 22:14:34Z dylan $';
-our $VERSION    = '0.10';
+our $VERSION    = '1.0';
 our @EXPORT     = qw( IGNORE MATCH );
 our @EXPORT_OK  = @EXPORT;
 our %EXPORT_TAGS = (
@@ -28,38 +27,38 @@ our %EXPORT_TAGS = (
 sub new {
 	my ($this) = shift;
 	my $self = bless {}, $this;
-	
-    # Rule list
-	$self->{rules} = [];
 
-    # Named predicates:
-    $self->{predicates} = {
-        file => sub { -f $_[0] },
-        dir  => sub { -d $_[0] },
-    };
-    
+	$self->_rules(@_);
+
 	return $self;
 }
 
-sub rules {
+sub _rules {
 	my $self = shift;
 	
 	while (@_) {
 		my ($predicate, $action) = (shift, shift);
-        croak "Undefined action!"          unless defined  $action;
+        croak "Undefined action!" unless defined  $action;
 		my $act  = $self->_make_action($action);
         if ($predicate eq 'default') {
             $self->{default} = $action;
             next;
-        }
-        
+        }        
 		my $pred = $self->_make_predicate($predicate);
         
 		push @{ $self->{rules} }, [$pred, $action];
 	}
+
+	return $self;
 }
 
-*rule = \&rules;
+sub rule {
+	my $self = shift;
+	warn "rules() and rule() are deprecated! Please pass rules to new() from now on.\n";
+	$self->_rules(@_);
+}
+*rules = \&rule;
+
 
 sub find {
 	my ($self, @files) = @_;
@@ -85,7 +84,6 @@ sub find {
 				}
 			}
 		}
-				
 		
 		if (-d $path) {
 			my $dir;
@@ -101,7 +99,6 @@ sub find {
 		}
 	}
 }
-
 
 # Take a predicate and return a coderef.
 sub _make_predicate {
@@ -120,19 +117,22 @@ sub _make_predicate {
 		return $pred;
 	} 
     elsif (not $ref) {
-        if (exists $self->{predicates}{$pred}) {
-            return $self->{predicates}{$pred};
-        } else {
-            my $code = eval "sub { \$_ = shift; $pred }";
-            if ($@) {
-                die $@;
-            }
-            return $code;
+    	if ($pred eq 'dir') {
+    		warn "the predicate 'dir' is deprecated.\n";
+    		$pred = '-d';
+    	} elsif ($pred eq 'file') {
+    		warn "the predicate 'file' is deprecated.\n";
+    		$pred = '-f';
+    	}
+        my $code = eval "sub { package main; \$_ = shift; $pred }";
+        if ($@) {
+            die $@;
         }
+        return $code;
     }   
     # All other values are illegal.
 	else {
-		croak "Predicate must be code or regexp reference.";
+		croak "Predicate must be a string, code reference, or regexp reference.";
 	}
 }
 
@@ -169,8 +169,7 @@ File::Find::Match - Perform different actions on files based on file name.
     use File::Find::Match qw( :constants );
 	use File::Find::Match::Util qw( filename );
 
-    my $finder = new File::Find::Match;
-    $finder->rules(
+    my $finder = new File::Find::Match(
         filename('.svn') => sub { IGNORE },
         qr/\.pm$/ => sub {
             print "Perl module: $_[0]\n";
@@ -184,8 +183,7 @@ File::Find::Match - Perform different actions on files based on file name.
             print "myself!!! $_[0]\n";
             MATCH;
         },
-        # dir =>  is the same as -d => or sub { -d } => 
-        dir => sub {
+        -d => sub {
             print "Directory: $_[0]\n";
             MATCH;
         },
@@ -207,23 +205,13 @@ based on the filename. It is meant to be more flexible than File::Find.
 
 =head1 METHODS
 
-=head2 new(%opts)
+=head2 new($predicate => $action, ...)
 
 Creates a new C<File::Find::Match> object.
-Currently %opts is ignored.
 
-If you are going to sublcass C<File::Find::Match>, you may
-override initialize() which new() calls right after object creation.
-
-=head2 rules($predicate => $action, ...)
-
-rules() accpets a list of $predicate => $action pairs.
+new() accepts a list of $predicate => $action pairs.
 
 See L</RULES> for a detailed description.
-
-=head2 rule($predicate => $action)
-
-This is just an alias to rules().
 
 =head2 find(@dirs)
 
@@ -240,7 +228,7 @@ See L</Actions> for usage.
 
 =head1 RULES
 
-A rule is a predicate => action pair.
+A rule is a C<predicate =E<gt> action> pair.
 
 A predicate is the code (or regexp, see below) used to determine if
 we want to process a file.
@@ -265,10 +253,6 @@ If it returns a true value, the predicate is true. Else the predicate is false.
 The 'default' string predicate is magical.
 It must only be specified as a predicate once, and it is called after
 all predicates, regardless of the order.
-
-The 'dir' string predicate is the same as C<sub { -d $_[0] }>.
-
-The 'file' string predicate is the same as C<sub { -f $_[0] }>.
 
 Any other string will be evaluated as perl code.
 In addition, $_ will be set to the first argument.

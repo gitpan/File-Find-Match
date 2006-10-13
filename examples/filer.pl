@@ -6,8 +6,7 @@ use File::Find::Match;
 use File::Find::Match::Util 'filename';
 use lib 'blib';
 
-my $finder = new File::Find::Match;
-$finder->rules(
+my $finder = new File::Find::Match(
     filename('.svn') => sub { IGNORE },
 	qr/_build/   => sub { IGNORE },
 	qr/\bblib\b/ => sub { IGNORE },
@@ -25,7 +24,7 @@ $finder->rules(
 		print "this is also filer.pl! $_[0]\n";
 		return MATCH;
 	},
-	dir => sub {
+	-d => sub {
 		print "Directory: $_[0]\n";
 		MATCH;
 	},

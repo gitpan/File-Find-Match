@@ -13,8 +13,6 @@ can_ok($finder,
 	qw(
 		new
 		find
-		rules
-        _make_predicate
 	)
 );
 
